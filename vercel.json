@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "buildCommand": "npm run build --workspace=frontend && cd backend && npx prisma generate",
+  "outputDirectory": "frontend/dist",
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "/api/index" }
+  ],
+  "crons": [
+    { "path": "/api/cron/xp-decay",    "schedule": "0 0 * * *" },
+    { "path": "/api/cron/weekly-reset", "schedule": "0 0 * * 1" }
+  ]
+}

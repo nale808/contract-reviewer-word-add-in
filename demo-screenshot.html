@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contract Reviewer — Word Add-in Demo</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', sans-serif; background: #f3f2f1; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+  /* ── Word ribbon chrome ── */
+  .word-chrome { background: #185abd; display: flex; flex-direction: column; flex-shrink: 0; }
+  .word-title-bar { display: flex; align-items: center; padding: 6px 12px; gap: 10px; background: #185abd; }
+  .word-title-bar .doc-name { color: #fff; font-size: 13px; font-weight: 600; flex: 1; text-align: center; }
+  .word-title-bar .win-btns { display: flex; gap: 0; }
+  .win-btn { width: 46px; height: 28px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 11px; cursor: pointer; }
+  .win-btn:hover { background: rgba(255,255,255,0.15); }
+  .win-btn.close:hover { background: #e81123; }
+
+  .ribbon { background: #fff; border-bottom: 1px solid #d1cfc8; padding: 0 8px; display: flex; align-items: flex-end; gap: 2px; height: 46px; }
+  .ribbon-tab { padding: 10px 14px 8px; font-size: 12px; color: #444; cursor: pointer; border-bottom: 2px solid transparent; }
+  .ribbon-tab.active { color: #185abd; border-bottom-color: #185abd; font-weight: 600; }
+  .ribbon-tab:hover:not(.active) { color: #222; background: #f5f5f5; }
+
+  /* ── Main layout ── */
+  .main { display: flex; flex: 1; overflow: hidden; }
+
+  /* ── Word document area ── */
+  .word-doc-area { flex: 1; background: #f3f2f1; overflow-y: auto; display: flex; justify-content: center; padding: 28px 0; }
+  .page { width: 850px; min-height: 1100px; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.18); padding: 96px 96px 96px 96px; position: relative; }
+
+  /* ── Page ruler ── */
+  .ruler { height: 22px; background: #e8e6e1; border-bottom: 1px solid #c8c6c0; display: flex; align-items: center; padding: 0 88px; margin-bottom: 0; flex-shrink: 0; }
+  .ruler-tick { width: 1px; height: 8px; background: #888; margin-right: 95px; }
+
+  /* ── Doc content ── */
+  .doc-title { font-size: 16px; font-weight: 700; text-align: center; margin-bottom: 6px; }
+  .doc-subtitle { font-size: 11px; text-align: center; color: #555; margin-bottom: 24px; }
+  .section-heading { font-size: 12px; font-weight: 700; margin: 18px 0 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .para { font-size: 11.5px; line-height: 1.75; color: #111; margin-bottom: 10px; text-align: justify; }
+  .para.numbered { padding-left: 20px; position: relative; }
+  .para.numbered::before { position: absolute; left: 0; font-weight: 600; }
+
+  /* ── Redline highlights ── */
+  .hl-high { background: #fde7e9; border-bottom: 2px solid #c50f1f; color: #700; cursor: pointer; }
+  .hl-medium { background: #fff4ce; border-bottom: 2px solid #c09000; color: #6b4f00; cursor: pointer; }
+  .hl-low { background: #e8f4e8; border-bottom: 2px solid #107c10; color: #004d00; cursor: pointer; }
+  .hl-fixed { background: #e9f6e9; border-bottom: 2px solid #107c10; color: #107c10; text-decoration: line-through; cursor: default; }
+  .hl-new { background: #d4f0d4; color: #004d00; font-style: italic; }
+
+  /* ── Sidebar ── */
+  .sidebar { width: 360px; flex-shrink: 0; border-left: 1px solid #d1cfc8; background: #fff; display: flex; flex-direction: column; overflow: hidden; }
+  .sidebar-header { background: #185abd; color: #fff; padding: 6px 10px; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  .sidebar-header span { opacity: 0.85; }
+  .sidebar-iframe { flex: 1; border: none; width: 100%; }
+
+  /* ── Status bar ── */
+  .status-bar { height: 22px; background: #185abd; display: flex; align-items: center; padding: 0 12px; gap: 16px; flex-shrink: 0; }
+  .status-bar span { color: rgba(255,255,255,0.85); font-size: 11px; }
+  .status-bar .spacer { flex: 1; }
+  .status-bar .zoom { color: rgba(255,255,255,0.85); font-size: 11px; }
+</style>
+</head>
+<body>
+
+<!-- Word chrome -->
+<div class="word-chrome">
+  <div class="word-title-bar">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/fd/Microsoft_Office_Word_%282019–present%29.svg/32px-Microsoft_Office_Word_%282019–present%29.svg.png" width="18" height="18" style="flex-shrink:0" alt="Word">
+    <div class="doc-name">MasterServicesAgreement_Acme_v3.docx — Word</div>
+    <div class="win-btns">
+      <div class="win-btn">─</div>
+      <div class="win-btn">□</div>
+      <div class="win-btn close">✕</div>
+    </div>
+  </div>
+  <div class="ribbon">
+    <div class="ribbon-tab active">Home</div>
+    <div class="ribbon-tab">Insert</div>
+    <div class="ribbon-tab">Draw</div>
+    <div class="ribbon-tab">Design</div>
+    <div class="ribbon-tab">Layout</div>
+    <div class="ribbon-tab">References</div>
+    <div class="ribbon-tab">Mailings</div>
+    <div class="ribbon-tab">Review</div>
+    <div class="ribbon-tab">View</div>
+    <div class="ribbon-tab" style="color:#185abd;font-weight:600">Add-ins</div>
+  </div>
+</div>
+
+<!-- Main content -->
+<div class="main">
+
+  <!-- Document -->
+  <div class="word-doc-area">
+    <div class="page">
+      <div class="doc-title">MASTER SERVICES AGREEMENT</div>
+      <div class="doc-subtitle">Between Acme Corporation ("Client") and TechVentures LLC ("Vendor") · Effective Date: March 1, 2026</div>
+
+      <div class="section-heading">1. Services</div>
+      <p class="para">Vendor shall provide Client with software development and consulting services as described in one or more Statements of Work executed by the parties. Each Statement of Work shall be incorporated herein by reference and shall set forth the specific deliverables, timelines, and fees applicable to the engagement.</p>
+
+      <div class="section-heading">2. Term &amp; Termination</div>
+      <p class="para">This Agreement shall commence on the Effective Date and continue for an initial term of one (1) year unless earlier terminated. <span class="hl-high" title="HIGH RISK · Flagged by Contract Reviewer">Either party may terminate this agreement upon <strong>3 days</strong> written notice for any reason.</span> Upon expiration or termination, all outstanding invoices shall become immediately due and payable.</p>
+
+      <div class="section-heading">3. Fees &amp; Payment</div>
+      <p class="para">Client shall pay Vendor the fees set forth in each Statement of Work within thirty (30) days of receipt of Vendor's invoice. <span class="hl-medium" title="MEDIUM RISK · Flagged by Contract Reviewer">Late payments shall accrue interest at the rate of <strong>3% per month</strong>, compounded monthly.</span> Vendor reserves the right to suspend Services upon ten (10) days written notice for any overdue amounts exceeding sixty (60) days.</p>
+
+      <div class="section-heading">4. Intellectual Property</div>
+      <p class="para"><span class="hl-high" title="HIGH RISK · Flagged by Contract Reviewer">All work product, software, and deliverables created by Vendor under this Agreement shall remain the <strong>exclusive property of Vendor</strong>. Client receives only a limited, non-exclusive, non-transferable license to use such deliverables for its internal business purposes.</span> Client acknowledges that Vendor may use similar deliverables for other clients.</p>
+
+      <div class="section-heading">5. Limitation of Liability</div>
+      <p class="para">NEITHER PARTY SHALL BE LIABLE FOR INDIRECT, INCIDENTAL, CONSEQUENTIAL, SPECIAL, OR PUNITIVE DAMAGES ARISING OUT OF OR RELATED TO THIS AGREEMENT. <span class="hl-high" title="HIGH RISK · Flagged by Contract Reviewer">Vendor's total liability to Client under this Agreement shall not exceed <strong>One Hundred Dollars ($100)</strong>, regardless of the nature of the claim.</span></p>
+
+      <div class="section-heading">6. Confidentiality</div>
+      <p class="para"><span class="hl-low" title="LOW RISK · Flagged by Contract Reviewer">Each party agrees to keep confidential all non-public information of the other party for a period of <strong>one (1) year</strong> following disclosure.</span> This obligation shall not apply to information that becomes publicly available through no fault of the receiving party, or that the receiving party independently develops without reference to the disclosing party's confidential information.</p>
+
+      <div class="section-heading">7. Governing Law</div>
+      <p class="para">This Agreement shall be governed by and construed in accordance with the laws of the State of Delaware, without regard to its conflict of laws principles. Any disputes arising hereunder shall be resolved by binding arbitration in accordance with the rules of the American Arbitration Association, with proceedings conducted in Wilmington, Delaware.</p>
+
+      <div class="section-heading">8. Amendments</div>
+      <p class="para" style="color:#555;font-style:italic">[Additional sections continue on pages 2–8, including Data Privacy (§9), Indemnification (§10), Insurance (§11), Force Majeure (§12), and General Provisions (§13).]</p>
+    </div>
+  </div>
+
+  <!-- Contract Reviewer Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <span>📋 Contract Reviewer</span>
+      <span>Task Pane</span>
+    </div>
+    <iframe
+      class="sidebar-iframe"
+      src="http://localhost:3000/taskpane.html"
+      title="Contract Reviewer Add-in"
+    ></iframe>
+  </div>
+
+</div>
+
+<!-- Status bar -->
+<div class="status-bar">
+  <span>Page 1 of 8</span>
+  <span>1,842 words</span>
+  <span>English (US)</span>
+  <div class="spacer"></div>
+  <span class="zoom">🔍 100%</span>
+</div>
+
+</body>
+</html>

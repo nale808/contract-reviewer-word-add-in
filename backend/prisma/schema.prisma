@@ -1,0 +1,31 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-1.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model UserStats {
+  id                    String    @id @default(cuid())
+  userId                String    @unique  // MSAL object ID
+  displayName           String
+  contractsReviewed     Int       @default(0)
+  redlinesInserted      Int       @default(0)
+  totalScoreImprovement Int       @default(0) // sum of (finalScore - initialScore) per contract
+  weeklyRedlines        Int       @default(0) // reset each Monday via cron
+  totalXp               Int       @default(0)
+  careerTitle           String    @default("Paralegal")
+  currentStreak         Int       @default(0)
+  longestStreak         Int       @default(0)
+  lastActiveDate        DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([weeklyRedlines])
+  @@index([totalXp])
+  @@index([lastActiveDate])
+}
